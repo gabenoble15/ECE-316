@@ -1,0 +1,16 @@
+# ModelSim / Questa
+work/
+vsim.wlf
+transcript
+*.mti
+*.log
+*.jou
+*.bak
+
+# Quartus junk (if ever added later)
+db/
+incremental_db/
+output_files/
+
+# Windows junk
+Thumbs.db
