@@ -13,92 +13,54 @@ entity ALU8 is
 end ALU8;
 
 architecture struct of ALU8 is
-	component Adder8
-    		port(
-      		A, B : in  std_logic_vector(7 downto 0);
-      		Cin  : in  std_logic;
-      		Cout : out std_logic;
-      		S    : out std_logic_vector(7 downto 0)
-    		);
-  	end component;
+    component magnitude is
+        port(
+            R_s          : in  signed(8 downto 0);      
+            Mag_u        : out unsigned(7 downto 0);
+            Overflow_int : out std_logic
+        );
+    end component;
 
-  	signal A_sel, B_sel : std_logic_vector(7 downto 0);
-  	signal Cin_sel      : std_logic;
-  	signal Result_int   : std_logic_vector(7 downto 0);
-  	signal overflow     : std_logic;
-	signal Cout_int     : std_logic;
-	
-	component magnitude
-		port(
-    		R_s         : in  signed(7 downto 0);
-   	 	Mag_u       : out unsigned(7 downto 0);
-    		Overflow_int: out std_logic
-  		);
-	end component;
-	signal final_result : unsigned(7 downto 0);
-	
-	
-
-	
+    signal Res9         : signed(8 downto 0);          
+    signal final_result : unsigned(7 downto 0);
+    signal overflow     : std_logic;
 
 begin
 
-	with Opr select
-    		A_sel <= X        when "000",  -- X
-             	X        when "001",  -- X+1
-             	X        when "010",  -- X-1
-             	not X    when "011",  -- -X
-             	not Y    when "100",  -- -Y
-             	X        when "101",  -- X+Y
-             	X        when "110",  -- X-Y
-             	Y        when "111",  -- Y-X
-             	(others => '0') when others;
+    -- Compute the TRUE signed result in 9 bits (prevents wrap)
+    process(X, Y, Opr)
+        variable xs, ys : signed(8 downto 0);
+    begin
+        xs := resize(signed(X), 9);
+        ys := resize(signed(Y), 9);
 
-  	with Opr select
-    		B_sel <= (others => '0') when "000", -- X
-             	(others => '0') when "001", -- X+1
-             	(others => '1') when "010", -- X-1
-             	(others => '0') when "011", -- -X
-             	(others => '0') when "100", -- -Y
-             	Y               when "101", -- X+Y
-             	not Y           when "110", -- X-Y
-             	not X           when "111", -- Y-X
-             	(others => '0') when others;
+        case Opr is
+            when "000" => Res9 <= xs;         -- X
+            when "001" => Res9 <= xs + 1;     -- X+1
+            when "010" => Res9 <= xs - 1;     -- X-1
+            when "011" => Res9 <= -xs;        -- -X
+            when "100" => Res9 <= -ys;        -- -Y
+            when "101" => Res9 <= xs + ys;    -- X+Y
+            when "110" => Res9 <= xs - ys;    -- X-Y
+            when "111" => Res9 <= ys - xs;    -- Y-X
+            when others => Res9 <= (others => '0');
+        end case;
+    end process;
 
-  	with Opr select
-    		Cin_sel <= '0' when "000",
-               	'1' when "001",
-               	'0' when "010",
-               	'1' when "011",
-               	'1' when "100",
-               	'0' when "101",
-               	'1' when "110",
-               	'1' when "111",
-               	'0' when others;
+    -- Negative from the TRUE result
+    Negative <= Res9(8);
 
-  	U1: Adder8
-    		port map(
-      		A    => A_sel,
-      		B    => B_sel,
-      		Cin  => Cin_sel,
-      		Cout => Cout_int,
-      		S    => Result_int
-    		);
-	
+    -- Magnitude + overflow computed from TRUE result
+    Convert: magnitude
+        port map(
+            R_s          => Res9,
+            Mag_u        => final_result,
+            Overflow_int => overflow
+        );
 
-	Negative <= Result_int(7);
-  
-	
-  	Convert: magnitude
-  		port map(
-    		R_s          => signed(Result_int),
-    		Mag_u        => final_result,
-    		Overflow_int => overflow
-  		);
-	O <= overflow;
-	Result <= std_logic_vector(final_result);
+    O      <= overflow;
+    Result <= std_logic_vector(final_result);
 
-	
 end struct;
 
 
